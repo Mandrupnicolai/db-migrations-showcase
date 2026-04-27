@@ -1,0 +1,98 @@
+# GitLab CI/CD Pipeline
+# Secrets required (Settings > CI/CD > Variables):
+#   POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+
+stages:
+  - migrate
+  - test
+
+default:
+  image: python:3.12-slim
+
+variables:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+
+.postgres_service: &postgres_service
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+      variables:
+        POSTGRES_DB: $POSTGRES_DB
+        POSTGRES_USER: $POSTGRES_USER
+        POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+
+# -- Alembic --------------------------------------------------------------------
+
+alembic:migrate:
+  stage: migrate
+  <<: *postgres_service
+  variables:
+    DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+  before_script:
+    - pip install -r requirements.txt
+  script:
+    - python -m alembic -c alembic/alembic.ini upgrade head
+    - python -m alembic -c alembic/alembic.ini downgrade base
+    - python -m alembic -c alembic/alembic.ini upgrade head
+  rules:
+    - changes:
+        - alembic/**/*
+        - requirements.txt
+
+alembic:test:
+  stage: test
+  <<: *postgres_service
+  variables:
+    DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+  before_script:
+    - pip install -r requirements.txt
+  script:
+    - pytest tests/test_alembic_migrations.py -v --tb=short
+  needs: ["alembic:migrate"]
+  rules:
+    - changes:
+        - alembic/**/*
+        - tests/test_alembic_migrations.py
+
+# -- Flyway ---------------------------------------------------------------------
+
+flyway:migrate:
+  stage: migrate
+  image: python:3.12-slim
+  <<: *postgres_service
+  variables:
+    FLYWAY_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
+    FLYWAY_USER: $POSTGRES_USER
+    FLYWAY_PASSWORD: $POSTGRES_PASSWORD
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq wget
+    - wget -qO- https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/10.10.0/flyway-commandline-10.10.0-linux-x64.tar.gz | tar xz -C /opt
+    - ln -s /opt/flyway-10.10.0/flyway /usr/local/bin/flyway
+    - pip install -r requirements.txt
+  script:
+    - flyway -configFiles=flyway/conf/flyway.toml -locations=filesystem:flyway/sql migrate
+    - flyway -configFiles=flyway/conf/flyway.toml -locations=filesystem:flyway/sql info
+  rules:
+    - changes:
+        - flyway/**/*
+
+flyway:test:
+  stage: test
+  <<: *postgres_service
+  variables:
+    FLYWAY_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
+    FLYWAY_USER: $POSTGRES_USER
+    FLYWAY_PASSWORD: $POSTGRES_PASSWORD
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq wget
+    - wget -qO- https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/10.10.0/flyway-commandline-10.10.0-linux-x64.tar.gz | tar xz -C /opt
+    - ln -s /opt/flyway-10.10.0/flyway /usr/local/bin/flyway
+    - pip install -r requirements.txt
+  script:
+    - pytest tests/test_flyway_migrations.py -v --tb=short
+  needs: ["flyway:migrate"]
+  rules:
+    - changes:
+        - flyway/**/*
+        - tests/test_flyway_migrations.py
