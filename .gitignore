@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.env
+*.egg-info/
+dist/
+.pytest_cache/
+alembic/__pycache__/
+*.class
+*.log
+flyway/jars/
