@@ -1,0 +1,59 @@
+name: Alembic Migrations
+
+on:
+  push:
+    paths:
+      - 'alembic/**'
+      - 'tests/test_alembic_migrations.py'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+  pull_request:
+    branches: [main]
+
+jobs:
+  alembic:
+    name: Run Alembic Migrations & Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/${{ secrets.POSTGRES_DB }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Alembic upgrade
+        run: python -m alembic -c alembic/alembic.ini upgrade head
+
+      - name: Run Alembic downgrade (smoke test)
+        run: python -m alembic -c alembic/alembic.ini downgrade base
+
+      - name: Run Alembic upgrade again (idempotency check)
+        run: python -m alembic -c alembic/alembic.ini upgrade head
+
+      - name: Run tests
+        run: pytest tests/test_alembic_migrations.py -v

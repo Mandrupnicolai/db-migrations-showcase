@@ -1,0 +1,75 @@
+name: Flyway Migrations
+
+on:
+  push:
+    paths:
+      - 'flyway/**'
+      - 'tests/test_flyway_migrations.py'
+  pull_request:
+    branches: [main]
+
+jobs:
+  flyway:
+    name: Run Flyway Migrations & Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python (for test runner)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up Flyway CLI
+        run: |
+          wget -qO- https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/10.10.0/flyway-commandline-10.10.0-linux-x64.tar.gz | tar xz
+          echo "$(pwd)/flyway-10.10.0" >> $GITHUB_PATH
+
+      - name: Run Flyway migrate
+        run: |
+          flyway \
+            -url="jdbc:postgresql://localhost:5432/${{ secrets.POSTGRES_DB }}" \
+            -user="${{ secrets.POSTGRES_USER }}" \
+            -password="${{ secrets.POSTGRES_PASSWORD }}" \
+            -locations="filesystem:flyway/sql" \
+            migrate
+
+      - name: Run Flyway info
+        run: |
+          flyway \
+            -url="jdbc:postgresql://localhost:5432/${{ secrets.POSTGRES_DB }}" \
+            -user="${{ secrets.POSTGRES_USER }}" \
+            -password="${{ secrets.POSTGRES_PASSWORD }}" \
+            -locations="filesystem:flyway/sql" \
+            info
+
+      - name: Run tests
+        run: pytest tests/test_flyway_migrations.py -v
