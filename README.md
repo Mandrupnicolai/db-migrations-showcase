@@ -17,22 +17,24 @@
 Schema management is one of the most error-prone parts of production engineering. This repo demonstrates how to approach it properly — versioned, repeatable, reversible, and automated — using two of the most widely adopted tools in the ecosystem.
 
 ---
-
 ## Project Structure
+
+```
 db-migrations-showcase/
-├── alembic/          # Python/SQLAlchemy migration scripts
-│   ├── versions/     # Versioned migration files
-│   ├── env.py        # Alembic runtime environment
-│   └── alembic.ini   # Alembic configuration (no hardcoded credentials)
+├── alembic/
+│   ├── versions/        # Versioned migration files
+│   ├── env.py           # Alembic runtime environment
+│   └── alembic.ini      # Configuration (no hardcoded credentials)
 ├── flyway/
-│   ├── conf/         # Flyway config (env-var driven)
-│   └── sql/          # V1, V2, V3 SQL migration scripts
-├── docker/           # Local Postgres via Docker Compose
-├── scripts/          # PowerShell helper scripts
-├── tests/            # Integration tests (pytest)
-├── .github/          # GitHub Actions pipelines
-└── .gitlab-ci.yml    # GitLab CI pipeline
----
+│   ├── conf/            # Flyway config (env-var driven)
+│   └── sql/             # V1, V2, V3 SQL migration scripts
+├── docker/              # Local Postgres via Docker Compose
+├── scripts/             # PowerShell helper scripts
+├── tests/               # Integration tests (pytest)
+├── .github/
+│   └── workflows/       # GitHub Actions pipelines
+└── .gitlab-ci.yml       # GitLab CI pipeline
+```
 
 ## Prerequisites
 
