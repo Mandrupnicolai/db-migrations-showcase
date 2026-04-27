@@ -1,0 +1,13 @@
+[flyway]
+# All connection details are resolved from environment variables at runtime.
+# Set FLYWAY_URL, FLYWAY_USER, FLYWAY_PASSWORD before invoking Flyway.
+locations = ["filesystem:sql"]
+baselineOnMigrate = true
+validateOnMigrate = true
+outOfOrder = false
+cleanDisabled = true
+
+[flyway.environment.default]
+url = "${FLYWAY_URL}"
+user = "${FLYWAY_USER}"
+password = "${FLYWAY_PASSWORD}"
